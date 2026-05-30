@@ -1,0 +1,50 @@
+name: ONESEC 自动审计
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: 'GitHub 仓库链接 (公开)'
+        required: true
+        type: string
+      notify:
+        description: '微信通知'
+        required: false
+        default: 'yes'
+        type: choice
+        options: ['yes', 'no']
+
+jobs:
+  audit:
+    name: AI代码审计
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 运行审计
+        env:
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          NOTIFY: ${{ github.event.inputs.notify }}
+        run: |
+          TARGET="${{ github.event.inputs.repo_url }}"
+          echo "🎯 目标: $TARGET"
+          python onesec_service.py "$TARGET"
+
+      - name: 上传报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: 审计报告
+          path: _scan_reports/
+
+      - name: 报告总结
+        run: |
+          echo "## ✅ 审计完成" >> $GITHUB_STEP_SUMMARY
+          echo "目标: ${{ github.event.inputs.repo_url }}" >> $GITHUB_STEP_SUMMARY
+          ls _scan_reports/ >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "无报告" >> $GITHUB_STEP_SUMMARY
