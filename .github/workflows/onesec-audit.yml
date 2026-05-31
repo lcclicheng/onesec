@@ -1,4 +1,4 @@
-name: ONESEC 自动审计
+name: ONESEC v3.0 自动审计
 
 on:
   workflow_dispatch:
@@ -7,12 +7,11 @@ on:
         description: 'GitHub 仓库链接 (公开)'
         required: true
         type: string
-      notify:
-        description: '微信通知'
+      target_url:
+        description: '目标网站URL (可选，有则启动Scrapling+Playwright验证)'
         required: false
-        default: 'yes'
-        type: choice
-        options: ['yes', 'no']
+        default: ''
+        type: string
 
 jobs:
   audit:
@@ -26,16 +25,16 @@ jobs:
           python-version: '3.12'
 
       - name: 安装依赖
-        run: pip install requests
+        run: |
+          pip install requests scrapling playwright
+          python -m playwright install chromium --with-deps
 
-      - name: 运行审计
+      - name: 运行v3审计
         env:
           PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
-          NOTIFY: ${{ github.event.inputs.notify }}
+          TARGET_URL: ${{ github.event.inputs.target_url }}
         run: |
-          TARGET="${{ github.event.inputs.repo_url }}"
-          echo "🎯 目标: $TARGET"
-          python onesec_service.py "$TARGET"
+          python onesec_service.py "${{ github.event.inputs.repo_url }}" "$TARGET_URL" 2>&1
 
       - name: 上传报告
         uses: actions/upload-artifact@v4
@@ -43,8 +42,7 @@ jobs:
           name: 审计报告
           path: _scan_reports/
 
-      - name: 报告总结
+      - name: 报告摘要
         run: |
-          echo "## ✅ 审计完成" >> $GITHUB_STEP_SUMMARY
-          echo "目标: ${{ github.event.inputs.repo_url }}" >> $GITHUB_STEP_SUMMARY
-          ls _scan_reports/ >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "无报告" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ v3.0审计完成" >> $GITHUB_STEP_SUMMARY
+          ls _scan_reports/ >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "报告已生成"
